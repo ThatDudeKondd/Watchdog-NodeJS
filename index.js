@@ -4,10 +4,14 @@ const fs = require("fs")
 const path = require("path");
 const mongoose = require('mongoose');
 require('dotenv').config();
-
 const constStart = new Boolean(true);
 
-const { logMessage } = require('./logsschema');
+const logsConnection = mongoose.connect(process.env.MONGO_URI_LOGS, {})
+  .then(() => console.log('Connected to MongoDB for logs'))
+  .catch(err => console.error('MongoDB logs connection error:', err));
+const settingsConnection= mongoose.connect(process.env.MONGO_URI_SETTINGS, {})
+  .then(() => console.log('Connected to MongoDB for settings'))
+  .catch(err => console.error('MongoDB settings connection error:', err));
 
 const client = new Client({
   intents: [
@@ -17,6 +21,13 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+client.on('clientReady', () => {
+  console.log(`Logged in as ${client.user.tag}!`);
+});
+
+const { logMessage } = require('./logsschema');
+const settingsSchema = require('./settingsSchema')(settingsConnection);
 
 const settingsPath = path.join(__dirname, 'settings.json');
 let settings = {};
@@ -28,18 +39,20 @@ function saveSettings() {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 4));
 }
 
-client.on('clientReady', () => {
-  console.log(`Logged in as ${client.user.tag}!`);
-  mongoose.connect(process.env.MONGO_URI, {})
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('MongoDB connection error:', err));
-});
-
 const commands = [
 
   new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Replies with Pong!')
+    .setName('set')
+    .setDescription('Sets settings (temporary untill we move to a dashboard setup)')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('logchannel')
+        .setDescription('Sets the log channel for the server')
+        .addChannelOption(option =>
+          option.setName('channel')
+            .setDescription('The channel to set as the log channel')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText)))
 
 ].map(command => command.toJSON());
 
@@ -77,13 +90,48 @@ client.on('interactionCreate', async (interaction) => {
 
   const guildSettings = settings[guildId] || {};
 
-  if (interaction.commandName === 'ping') {
-    await interaction.reply('Pong!');
+  if (interaction.commandName === 'set') {
+    
+    const subcommand = interaction.options.getSubcommand();
+
+    if (subcommand === 'logchannel') {
+      const channel = interaction.options.getChannel('channel');
+      if (!channel) {
+        return interaction.reply({ content: 'Channel not found.', flags: MessageFlags.Ephemeral });
+      }
+
+      const settings = await Settings.getOrCreate(message.guild.id);
+
+       if (message.content.startsWith(settings.prefix + 'set prefix')) {
+    const newPrefix = message.content.split(' ')[2];
+    if (!newPrefix) return message.reply('Provide a new prefix.');
+    
+    try {
+      settings.prefix = newPrefix;
+      await settings.save();
+      message.reply(`Prefix updated to ${newPrefix}`);
+    } catch (err) {
+      message.reply('Invalid prefix: ' + err.message);
+    }
+  }
+      
+      settings[guildId] = {
+        ...settings[guildId],
+        channelId: channel.id
+      };
+      saveSettings();
+      return interaction.reply({ content: `Log channel set to ${channel}.`, flags: MessageFlags.Ephemeral });
+      }
   }
 });
 
 client.on('messageCreate', (message) => {
   logMessage(message);
+});
+
+client.on('guildCreate', async (guild) => {
+  const settings = await Settings.getOrCreate(guild.id);
+  console.log(`Loaded settings for ${guild.name}:`, settings);
 });
 
 client.on('error', (error) => {
