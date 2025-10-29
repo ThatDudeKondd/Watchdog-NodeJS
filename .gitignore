@@ -142,3 +142,4 @@ vite.config.ts.timestamp-*
 logs.json
 settings.json
 .disabled
+settings.json
