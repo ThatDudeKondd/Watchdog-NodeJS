@@ -1,4 +1,4 @@
-const { Client, IntentsBitField, SlashCommandBuilder, REST, Routes, MessageFlags, ChannelType, MessageActivityType } = require('discord.js');
+const { Client, IntentsBitField, SlashCommandBuilder, REST, Routes, MessageFlags, ChannelType, MessageActivityType, GatewayIntentBits } = require('discord.js');
 const readline = require('readline');
 const fs = require("fs")
 const path = require("path");
@@ -8,13 +8,15 @@ const client = new Client({
   intents: [
     IntentsBitField.Flags.Guilds,
     IntentsBitField.Flags.GuildMembers,
-    IntentsBitField.Flags.GuildMessages
+    IntentsBitField.Flags.GuildMessages,
+    GatewayIntentBits.MessageContent
   ]
 });
 
 const logsPath = path.join(__dirname, 'logs.json');
 let logs = {};
-try {
+function loadLogs() {
+  try {
   if (fs.existsSync(logsPath)) {
     logs = JSON.parse(fs.readFileSync(logsPath, 'utf8'));
     console.log('Loaded existing logs from file.');
@@ -25,7 +27,7 @@ try {
   console.error('Error loading logs.json:', error);
   logs = {}; // Fallback to empty object
 }
-
+}
 
 const settingsPath = path.join(__dirname, 'settings.json');
 let settings = {};
@@ -162,6 +164,7 @@ rl.on('line', (input) => {
       client.login(process.env.DISCORD_TOKEN).catch(err => {
         console.error('Login error:', err);
       });
+      loadLogs();
     } else {
       console.log('Bot is already running.');
     }
@@ -179,6 +182,7 @@ rl.on('line', (input) => {
       });
       }, 5000);
     });
+    loadLogs();
   }
 });
 
