@@ -77,4 +77,4 @@ settingsSchema.statics.getOrCreate = async function(guildId) {
 };
 
 // Export a function that takes the connection and returns the model
-module.exports = (connection) => connection.model('Settings', settingsSchema);
+module.exports = (connection) => mongoose.model('Settings', settingsSchema);

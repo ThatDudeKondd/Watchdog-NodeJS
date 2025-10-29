@@ -6,12 +6,21 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const constStart = new Boolean(true);
 
-const logsConnection = mongoose.connect(process.env.MONGO_URI_LOGS, {})
-  .then(() => console.log('Connected to MongoDB for logs'))
-  .catch(err => console.error('MongoDB logs connection error:', err));
-const settingsConnection= mongoose.connect(process.env.MONGO_URI_SETTINGS, {})
-  .then(() => console.log('Connected to MongoDB for settings'))
-  .catch(err => console.error('MongoDB settings connection error:', err));
+const logsConnection = mongoose.createConnection(process.env.MONGO_URI_LOGS, {}).asPromise()
+  .then(conn => {
+    console.log('Connected to LOGS_DB MongoDB');
+    return conn})
+  .catch(err => {
+    console.error('Error connecting to LOGS_DB MongoDB:', err);
+  });
+const settingsConnection= mongoose.createConnection(process.env.MONGO_URI_SETTINGS, {}).asPromise()
+  .then(conn => {
+    console.log('Connected to SETTINGS_DB MongoDB');
+    return conn})
+  .catch(err => {
+    console.error('Error connecting to LOGS_DB MongoDB:', err);
+  });
+
 
 const client = new Client({
   intents: [
@@ -21,7 +30,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
-
+ 
 client.on('clientReady', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
