@@ -108,8 +108,8 @@ const connection = mongoose.connect(process.env.MONGO_URI, {})
         console.error('Error connecting to MAIN_DB MongoDB:', err);
     });
 
-const { logMessage } = require('./logsschema');
-const { Settings } = require('./settingsSchema');
+const { logMessage } = require('./schemas/logs');
+const { Settings } = require('./schemas/settings');
 
 // Command registration
 
