@@ -141,3 +141,4 @@ vite.config.ts.timestamp-*
 # Local bot files that are not to be shared
 settings.json
 .disabled
+index_a.js.dissabled

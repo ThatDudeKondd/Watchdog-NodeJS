@@ -1,80 +1,21 @@
 const mongoose = require('mongoose');
-
-// Define the schema (same as before)
 const settingsSchema = new mongoose.Schema({
-  guildId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
-  prefix: {
-    type: String,
-    default: '!',
-    minlength: 1,
-    maxlength: 5,
-    validate: {
-      validator: (v) => /^[^\s]+$/.test(v),
-      message: 'Prefix cannot contain spaces.'
-    }
-  },
-  logChannel: {
-    type: String,
-    validate: {
-      validator: (v) => /^\d+$/.test(v),
-      message: 'Log channel must be a valid Discord ID.'
-    }
-  },
-  autoModeration: {
-    type: Boolean,
-    default: false
-  },
-  spamThreshold: {
-    type: Number,
-    default: 5,
-    min: 1,
-    max: 100
-  },
-  bannedWords: {
-    type: [String],
-    default: []
-  },
-  muteRole: {
-    type: String,
-    validate: {
-      validator: (v) => /^\d+$/.test(v),
-      message: 'Mute role must be a valid Discord ID.'
-    }
-  },
-  welcomeChannel: {
-    type: String,
-    validate: {
-      validator: (v) => /^\d+$/.test(v),
-      message: 'Welcome channel must be a valid Discord ID.'
-    }
-  },
-  adminRoles: {
-    type: [String],
-    default: []
-  },
-  logLevel: {
-    type: String,
-    enum: ['error', 'warn', 'info', 'debug'],
-    default: 'info'
-  }
-}, {
-  timestamps: true
+  _id: { type: String },  // Guild ID (as string)
+  logChannelId: { type: String, default: null }  // Channel ID as string
 });
-
-// Static method remains the same
-settingsSchema.statics.getOrCreate = async function(guildId) {
-  let settings = await this.findOne({ guildId });
-  if (!settings) {
-    settings = new this({ guildId });
-    await settings.save();
+const Settings = mongoose.model('settings_db', settingsSchema);
+// Fixed getOrCreate: Now returns the settings document
+Settings.getOrCreate = async function(guildId) {
+  try {
+    let settings = await Settings.findById(guildId);
+    if (!settings) {
+      settings = new Settings({ _id: guildId });
+      await settings.save();
+    }
+    return settings;  // Return the document
+  } catch (error) {
+    console.error('Error in getOrCreate:', error);
+    throw error;  // Re-throw to handle in caller
   }
-  return settings;
 };
-
-// Export a function that takes the connection and returns the model
-module.exports = (connection) => mongoose.model('Settings', settingsSchema);
+module.exports = { Settings };
