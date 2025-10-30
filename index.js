@@ -217,7 +217,6 @@ const fixDB = async () => {
     // Drop the old unique index on guildId
     await mongoose.connection.db.collection('logs_dbs').dropIndex({ guildId: 1 });
     console.log('✅ Dropped old guildId index.');
-    
     // Delete documents with guildId: null
     const deleteResult = await mongoose.connection.db.collection('logs_dbs').deleteMany({ guildId: null });
     console.log(`✅ Cleaned up ${deleteResult.deletedCount} documents with null guildId.`);
@@ -229,4 +228,4 @@ const fixDB = async () => {
 };
 
 // Call the fix function (only once)
-fixDB();
+//fixDB();
