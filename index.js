@@ -210,22 +210,3 @@ const messageSendEmbed = async function(message) {
     console.error('Error in messageSendEmbed:', error);
   }
 };
-
-// Temporary fix for DB index and data cleanup (run once, then delete this block)
-const fixDB = async () => {
-  try {
-    // Drop the old unique index on guildId
-    await mongoose.connection.db.collection('logs_dbs').dropIndex({ guildId: 1 });
-    console.log('✅ Dropped old guildId index.');
-    // Delete documents with guildId: null
-    const deleteResult = await mongoose.connection.db.collection('logs_dbs').deleteMany({ guildId: null });
-    console.log(`✅ Cleaned up ${deleteResult.deletedCount} documents with null guildId.`);
-    
-    console.log('✅ DB fix complete. You can remove this code block now.');
-  } catch (error) {
-    console.log('❌ DB fix failed (index or data may not exist):', error.message);
-  }
-};
-
-// Call the fix function (only once)
-//fixDB();
