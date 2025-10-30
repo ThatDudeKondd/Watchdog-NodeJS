@@ -1,4 +1,3 @@
-
 // Variables and imports
 
 const { Client, IntentsBitField, SlashCommandBuilder, REST, Routes, MessageFlags, ChannelType, EmbedBuilder, GatewayIntentBits } = require('discord.js');
@@ -26,7 +25,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 const guildIds = process.env.GUILD_IDS ? process.env.GUILD_IDS.split(',') : [];
 
-client.once('clientReady', async () => {  // Fixed: 'ready' instead of 'clientReady'
+client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   try {
     // Register commands for each guild
