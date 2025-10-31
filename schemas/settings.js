@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 const settingsSchema = new mongoose.Schema({
   _id: { type: String },  // Guild ID (as string)
-  logChannelId: { type: String, default: null }  // Channel ID as string
+  logChannelId: { type: String, default: null },  // Channel ID as string
+  adminRoleId: { type: String, default: null }  // Administrator Role ID as string
 });
 const Settings = mongoose.model('settings_db', settingsSchema);
 // Fixed getOrCreate: Now returns the settings document
