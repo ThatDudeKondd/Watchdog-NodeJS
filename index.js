@@ -6,6 +6,8 @@ const constStart = new Boolean(true);
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+const { messageSendEmbed, messageEditEmbed, messageDeleteEmbed } = require('./embeds/logs/message.js');
+
 // Bot startup below
 
 const client = new Client({
@@ -32,7 +34,6 @@ const guildIds = process.env.GUILD_IDS ? process.env.GUILD_IDS.split(',') : [];
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   try {
-    // Register commands for each guild
     for (const guildId of guildIds) {
       console.log(`🚀 Clearing old guild commands for ${guildId}...`);
       const cleared = await rest.put(
@@ -141,9 +142,7 @@ const commands = [
             .setRequired(true)))
 ].map(command => command.toJSON());
 
-
 // Command Handling
-
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isCommand()) return;
@@ -163,12 +162,11 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       try {
-        // Get or create settings for the guild
+
         const settings = await Settings.getOrCreate(guildId);
 
-        // Update the log channel ID
         settings.logChannelId = channel.id;
-        await settings.save();  // Save to database
+        await settings.save();
         
         return interaction.reply({ content: `Log channel set to ${channel}.`, flags: MessageFlags.Ephemeral });
       } catch (error) {
@@ -183,12 +181,11 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       try {
-        // Get or create settings for the guild
+
         const settings = await Settings.getOrCreate(guildId);
 
-        // Update the log channel ID 
         settings.adminRoleId = role.id;
-        await settings.save();  // Save to database
+        await settings.save();
         
         return interaction.reply({ content: `Administrator role saved to ${role}.`, flags: MessageFlags.Ephemeral });
       } catch (error) {
@@ -198,124 +195,7 @@ client.on('interactionCreate', async (interaction) => {
     } 
 }});
 
-// Embeds
-
-const messageSendEmbed = async function(message) {
-  const guildId = message.guild.id;
-  try {
-    const settings = await Settings.getOrCreate(guildId);
-    const logChannelId = settings.logChannelId;
-    if (!logChannelId) {
-      console.log('No log channel set for this guild. Skipping embed.');
-      return;
-    }
-    const logChannel = message.guild.channels.cache.get(logChannelId);
-    if (!logChannel || logChannel.type !== ChannelType.GuildText) {
-      console.error('Invalid log channel for guild:', guildId);  // Fixed: serverId → guildId
-      return;
-    }
-    const messageSentEmbed = new EmbedBuilder()
-      .setAuthor({ name: "Message Sent" })
-      .setDescription(`> Channel: ${message.channel} \n> Message Author: ${message.author} \n> Message ID: ${message.id} \n> Timestamp: <t:${Math.floor(message.createdTimestamp / 1000)}:F>`)
-      .addFields({
-        name: "Message Content:",
-        value: message.content || "No content",
-        inline: false
-      })
-      .setColor("#00ff00")
-      .setFooter({
-        text: "By Watchdog Security",  // Fixed: Secureity → Security
-        iconURL: "https://cdn.discordapp.com/attachments/1334208133387522089/1433923008975863819/Watchdog_PNG.png?ex=6906745e&is=690522de&hm=a974bf2716af261b33c3b43ea25392898a40de0741a5ff0726c84260248976a1&",
-      })
-      .setTimestamp();
-    // Send to log channel
-    await logChannel.send({ embeds: [messageSentEmbed] });
-  } catch (error) {
-    console.error('Error in messageSendEmbed:', error);
-  }
-};
-
-const messageEditEmbed = async function(oldMessage, newMessage) {
-  const guildId = newMessage.guild.id;
-
-  try {
-    const settings = await Settings.getOrCreate(guildId);
-    const logChannelId = settings.logChannelId;
-    if (!logChannelId) {
-      console.log('No log channel set for this guild. Skipping embed.');
-      return;
-    }
-    const logChannel = newMessage.guild.channels.cache.get(logChannelId);
-    if (!logChannel || logChannel.type !== ChannelType.GuildText) {
-      console.error('Invalid log channel for guild:', guildId);  // Fixed: serverId → guildId
-      return;
-    }
-
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: "Message Edited",
-      })
-      .setDescription(`> Channel: ${newMessage.channel} \n> Message Author: ${newMessage.author} \n> Message ID: ${newMessage.id} \n> Timestamp: <t:${Math.floor(newMessage.createdTimestamp / 1000)}:F>`)
-      .addFields(
-        {
-          name: "Old Message",
-          value: oldMessage.content || "",
-          inline: false
-        },
-        {
-          name: "New Message",
-          value: newMessage.content || "",
-          inline: false
-        },
-      )
-      .setColor("#ffff00")
-      .setFooter({
-        text: "By Watchdog Security",
-        iconURL: "https://cdn.discordapp.com/attachments/1334208133387522089/1433923008975863819/Watchdog_PNG.png?ex=6906745e&is=690522de&hm=a974bf2716af261b33c3b43ea25392898a40de0741a5ff0726c84260248976a1&",
-      })
-      .setTimestamp();
-
-    await logChannel.send({ embeds: [embed] });
-  } catch (error) {
-    console.error('Error in messageEditEmbed:', error);
-  }
-};
-
-const messageDeleteEmbed = async function(message) {
-  const guildId = message.guild.id;
-  try {
-    const settings = await Settings.getOrCreate(guildId);
-    const logChannelId = settings.logChannelId;
-    if (!logChannelId) {
-      console.log('No log channel set for this guild. Skipping embed.');
-      return;
-    }
-    const logChannel = message.guild.channels.cache.get(logChannelId);
-    if (!logChannel || logChannel.type !== ChannelType.GuildText) {
-      console.error('Invalid log channel for guild:', guildId);
-      return;
-    }
-    const embed = new EmbedBuilder()
-      .setAuthor({
-        name: "Message Deleted",
-      })
-      .setDescription(`> Channel: ${message.channel || 'Unknown'}\n> Message Author: ${message.author || 'Unknown'}\n> Message ID: ${message.id}\n> Sent at: <t:${Math.floor((message.createdTimestamp || Date.now()) / 1000)}:F>\n> Deleted at: <t:${Math.floor(Date.now() / 1000)}:F>`)  // Populated with actual data
-      .addFields({
-        name: "Message Content",
-        value: message.content || "Content unavailable (message deleted)",
-        inline: false
-      })
-      .setColor("#ff0000")
-      .setFooter({
-        text: "By Watchdog Security",
-        iconURL: "https://cdn.discordapp.com/attachments/1334208133387522089/1433923008975863819/Watchdog_PNG.png?ex=6906745e&is=690522de&hm=a974bf2716af261b33c3b43ea25392898a40de0741a5ff0726c84260248976a1&",
-      })
-      .setTimestamp();
-    await logChannel.send({ embeds: [embed] });
-  } catch (error) {
-    console.error('Error in messageDeleteEmbed:', error);
-  }
-};
+// Listeners for evenets
 
 client.on('messageCreate', (message) => {
   if (message.author.bot) return;
@@ -328,8 +208,7 @@ client.on('messageUpdate', (oldMessage, newMessage) => {
   messageEditEmbed(oldMessage, newMessage);
 });
 client.on('messageDelete', (message) => {
-  if (message.author && message.author.bot) return;
+  if (message.author.bot) return;
   logMessage('delete', message);
   messageDeleteEmbed(message);
 });
-

@@ -84,10 +84,11 @@ async function logMessage(actionType, message, editedMessage = null) {
         return;
       }
       messageData = {
-        content: message.content || '',  // New content
+        content: message.content || '',
         oldContent: editedMessage.content || '',
         newContent: message.content || '',
-        timestamp: message.editedTimestamp || message.createdTimestamp,
+        sentTimestamp: message.createdTimestamp,
+        editTimestamp: message.editedTimestamp || Date.now(),
         oldAttachment: editedMessage.attachments ? editedMessage.attachments.map(att => att.url) : [],
         newAttachment: message.attachments ? message.attachments.map(att => att.url) : [],
         type: message.type || 0,
@@ -100,7 +101,7 @@ async function logMessage(actionType, message, editedMessage = null) {
       messageData = {
         content: message.content || '',
         timestamp: message.createdTimestamp,
-        deletedTimestamp: Date.now(),  // Approximate deletion time
+        deletedTimestamp: Date.now(),
         attachment: message.attachments ? message.attachments.map(att => att.url) : [],
         type: message.type || 0,
         channelInfo: {
@@ -113,18 +114,15 @@ async function logMessage(actionType, message, editedMessage = null) {
       return;
     }
 
-    // Build dynamic keys
     const authorKey = `${message.author.username}/${message.author.id}`;
     const fullPath = `authors.${authorKey}.${actionType}/${message.id}`;
 
-    // Upsert the guild document
     const result = await GuildLogs.findOneAndUpdate(
       { _id: message.guild.id },
       { $set: { [fullPath]: messageData } },
       { upsert: true, new: true }
     );
-
-    console.log(`Logged ${actionType} message ID: ${message.id} for author: ${message.author.id} in guild: ${message.guild.id}`);
+    
   } catch (error) {
     console.error('Error logging message to MongoDB:', error);
   }
