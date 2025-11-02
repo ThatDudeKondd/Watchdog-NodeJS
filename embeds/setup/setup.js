@@ -32,5 +32,5 @@ const setupEmbedMain = async function(sentChannel) {
     })
     .setTimestamp();
 
- await sentChannel.send({ embeds: [embed] });
+await sentChannel.send({ embeds: [embed] });
 };
