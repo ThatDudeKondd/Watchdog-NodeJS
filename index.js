@@ -1,8 +1,8 @@
 // Variables and imports
 
-const { Client, IntentsBitField, SlashCommandBuilder, REST, Routes, MessageFlags, ChannelType, EmbedBuilder, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, ChannelType, PermissionsBitField } = require('discord.js');
 const readline = require('readline');
-const constStart = new Boolean(true);
+const START_IMMEDIATELY = true;
 const mongoose = require('mongoose');
 require('dotenv').config();
 
@@ -12,18 +12,15 @@ const { messageSendEmbed, messageEditEmbed, messageDeleteEmbed } = require('./em
 
 const client = new Client({
   intents: [
-    IntentsBitField.Flags.Guilds,
-    IntentsBitField.Flags.GuildMembers,
-    IntentsBitField.Flags.GuildMessages,
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
   ]
 });
 
-client.on('clientReady', () => {
+// When the client becomes ready
+client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
@@ -31,10 +28,18 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
 const guildIds = process.env.GUILD_IDS ? process.env.GUILD_IDS.split(',') : [];
 
-client.once('clientReady', async () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+// Command registration happens after `commands` is defined (below) when the client is ready.
+client.once('ready', async () => {
   try {
     for (const guildId of guildIds) {
+      try {
+        // Ensure the bot is actually in the guild and has access before attempting to register commands
+        await client.guilds.fetch(guildId);
+      } catch (fetchErr) {
+        console.warn(`Skipping command registration for ${guildId}: cannot access guild (${fetchErr.message}).`);
+        continue;
+      }
+
       console.log(`🚀 Clearing old guild commands for ${guildId}...`);
       const cleared = await rest.put(
         Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
@@ -48,7 +53,7 @@ client.once('clientReady', async () => {
       );
       console.log(`Registered commands for ${guildId}: ${JSON.stringify(registered)}`);
     }
-    console.log('✅ Slash commands registered in all specified guilds!');
+    if (guildIds.length) console.log('✅ Slash commands processed for specified guilds.');
   } catch (error) {
     console.error('❌ Failed to register slash commands:', error);
   }
@@ -64,54 +69,55 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-if (!constStart) {
+if (!START_IMMEDIATELY) {
   console.log('Type "start" to launch the bot, "stop" to terminate it, or "restart" to restart it.');
   rl.on('line', (input) => {
-  if (input.trim() === 'start' || (constStart === True)) {
-    if (!client.readyAt) {
-      console.log('Starting the bot...');
-      client.login(process.env.DISCORD_TOKEN).catch(err => {
-        console.error('Login error:', err);
-      });
-    } else {
-      console.log('Bot is already running.');
-    }
-  } else if (input.trim() === 'stop') {
-    console.log('Stopping the bot...');
-    client.destroy();
-    rl.close();
-  } else if (input.trim() === "restart") {
-    console.log('Restarting the bot...');
-    client.destroy().then(() => {
+    const cmd = input.trim();
+    if (cmd === 'start') {
+      if (!client.isReady()) {
+        console.log('Starting the bot...');
+        client.login(process.env.DISCORD_TOKEN).catch(err => console.error('Login error:', err));
+      } else {
+        console.log('Bot is already running.');
+      }
+    } else if (cmd === 'stop') {
+      console.log('Stopping the bot...');
+      client.destroy();
+      rl.close();
+    } else if (cmd === 'restart') {
+      console.log('Restarting the bot...');
+      client.destroy();
       setTimeout(() => {
         console.log('Starting the bot...');
-        client.login(process.env.DISCORD_TOKEN).catch(err => {
-        console.error('Login error:', err);
-      });
+        client.login(process.env.DISCORD_TOKEN).catch(err => console.error('Login error:', err));
       }, 5000);
-    });
-  }
-});
-} else {
-  if (!client.readyAt) {
-      console.log('Starting the bot...');
-      client.login(process.env.DISCORD_TOKEN).catch(err => {
-        console.error('Login error:', err);
-      });
-    } else {
-      console.log('Bot is already running.');
     }
+  });
+} else {
+  if (!client.isReady()) {
+    console.log('Starting the bot...');
+    client.login(process.env.DISCORD_TOKEN).catch(err => console.error('Login error:', err));
+  } else {
+    console.log('Bot is already running.');
+  }
 }
 
 // MongoDB and Schema setup
 
-const connection = mongoose.connect(process.env.MONGO_URI, {})
+// Connect to MongoDB only if a URI is provided
+let connection = null;
+if (process.env.MONGO_URI) {
+  connection = mongoose.connect(process.env.MONGO_URI, {})
     .then(conn => {
-        console.log('Connected to MAIN_DB MongoDB');
-        return conn})
+      console.log('Connected to MAIN_DB MongoDB');
+      return conn;
+    })
     .catch(err => {
-        console.error('Error connecting to MAIN_DB MongoDB:', err);
+      console.error('Error connecting to MAIN_DB MongoDB:', err && err.message ? err.message : err);
     });
+} else {
+  console.warn('MONGO_URI not provided; skipping MongoDB connection.');
+}
 
 const { logMessage } = require('./schemas/logs');
 const { Settings } = require('./schemas/settings');
@@ -158,7 +164,7 @@ client.on('interactionCreate', async (interaction) => {
     if (subcommand === 'logchannel') {
       const channel = interaction.options.getChannel('channel');
       if (!channel) {
-        return interaction.reply({ content: 'Channel not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Channel not found.', ephemeral: true });
       }
 
       try {
@@ -168,16 +174,16 @@ client.on('interactionCreate', async (interaction) => {
         settings.logChannelId = channel.id;
         await settings.save();
         
-        return interaction.reply({ content: `Log channel set to ${channel}.`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `Log channel set to ${channel}.`, ephemeral: true });
       } catch (error) {
         console.error('Error saving settings:', error);
-        return interaction.reply({ content: 'Failed to save settings. Please try again.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Failed to save settings. Please try again.', ephemeral: true });
       }
     }
     if (subcommand === 'administrator') {
       const role = interaction.options.getRole('role');
       if (!role) {
-        return interaction.reply({ content: 'Role was not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Role was not found.', ephemeral: true });
       }
 
       try {
@@ -187,10 +193,10 @@ client.on('interactionCreate', async (interaction) => {
         settings.adminRoleId = role.id;
         await settings.save();
         
-        return interaction.reply({ content: `Administrator role saved to ${role}.`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `Administrator role saved to ${role}.`, ephemeral: true });
       } catch (error) {
         console.error('Error saving settings:', error);
-        return interaction.reply({ content: 'Failed to save settings. Please try again.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Failed to save settings. Please try again.', ephemeral: true });
       }
     } 
 }});
